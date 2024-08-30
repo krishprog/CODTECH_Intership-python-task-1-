@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calcify</title>
+   <style>
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-image: url('https://wallpaper.dog/large/20496447.png');
+    background-size: cover;
+    background-position: center;
+}
+
+.calculator {
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    width: 220px;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.8); 
+    position: relative;
+}
+
+#display {
+    width: 100%;
+    height: 50px;
+    text-align: right;
+    font-size: 2em;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+    background-color: #f9f9f9;
+}
+
+.buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+}
+
+button {
+    width: 100%;
+    height: 50px;
+    font-size: 1.5em;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #f0f0f0;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    box-sizing: border-box;
+}
+
+button:hover {
+    background-color: #e0e0e0;
+}
+
+#history {
+    display: none;
+    position: absolute;
+    top: 60px;
+    right: 0;
+    width: 200px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    background-color: #fff;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+}
+
+#history h2 {
+    font-size: 1.2em;
+    margin: 0 0 10px;
+}
+
+#history ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+#history li {
+    border-bottom: 1px solid #ddd;
+    padding: 5px 0;
+}
+
+#history li:last-child {
+    border-bottom: none;
+}
+
+   </style>
+</head>
+<body>
+    <div class="calculator">
+        <input type="text" id="display" disabled>
+        <div class="buttons">
+            <button onclick="clearDisplay()"style="background-color:#fb2b41;">C</button>
+            <button onclick="deleteLastCharacter()"style="background-color:#fe5404;">&#9003;</button>
+            <button onclick="appendToDisplay('/')"style="background-color:#23dc02;">/</button>
+            <button onclick="appendToDisplay('*')"style="background-color:#23dc02;">*</button>
+
+            <button onclick="appendToDisplay('7')">7</button>
+            <button onclick="appendToDisplay('8')">8</button>
+            <button onclick="appendToDisplay('9')">9</button>
+            <button onclick="appendToDisplay('-')"style="background-color:#23dc02;">-</button>
+
+            <button onclick="appendToDisplay('4')">4</button>
+            <button onclick="appendToDisplay('5')">5</button>
+            <button onclick="appendToDisplay('6')">6</button>
+            <button onclick="appendToDisplay('+')"style="background-color:#23dc02;">+</button>
+
+            <button onclick="appendToDisplay('1')">1</button>
+            <button onclick="appendToDisplay('2')">2</button>
+            <button onclick="appendToDisplay('3')">3</button>
+            <button onclick="calculateResult()"style="background-color:#23dc02;">=</button>
+
+           
+            <button onclick="showHistory()"style="background-color:#2bb9fb;">Log</button>
+            <button onclick="appendToDisplay('0')">0</button>
+            <button onclick="appendToDisplay('.')">.</button>
+            <button onclick="calculatePercentage()"style="background-color:#23dc02;">%</button>
+          
+        </div>
+    </div>
+    <div id="history" class="history">
+        <h2>History</h2>
+        <ul id="history-list"></ul>
+    </div>
+    <script>
+let history = [];
+
+// Function to speak the result
+function speak(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.voice = speechSynthesis.getVoices().find(voice => voice.name === 'Google US English'); // Choose a specific voice if needed
+    speechSynthesis.speak(utterance);
+}
+
+function appendToDisplay(value) {
+    document.getElementById('display').value += value;
+}
+
+function clearDisplay() {
+    document.getElementById('display').value = '';
+}
+
+function deleteLastCharacter() {
+    const display = document.getElementById('display');
+    display.value = display.value.slice(0, -1);
+}
+
+async function calculateResult() {
+    const display = document.getElementById('display');
+    const expression = display.value;
+
+    try {
+        const response = await fetch('/calculate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ expression })
+        });
+
+        const data = await response.json();
+
+        if (data.error) {
+            display.value = 'Error';
+            speak('Error');
+        } else {
+            const result = data.result;
+            history.push(`${expression} = ${result}`);
+            display.value = result;
+            speak(`The result is ${result}`);
+        }
+    } catch (e) {
+        display.value = 'Error';
+        speak('Error');
+    }
+}
+
+function calculatePercentage() {
+    const display = document.getElementById('display');
+    const expression = display.value;
+
+    // Modify the expression to handle percentage calculation
+    // Example: if expression is "50 + 20%", convert it to "50 + 20 / 100"
+    const percentageExpression = expression.replace(/(\d+)%/, (match, p1) => {
+        return `(${p1}) / 100`;
+    });
+
+    // Append a dummy value like '+0' to ensure the expression is valid if it's just a percentage
+    const finalExpression = percentageExpression.includes('%') ? percentageExpression + '+0' : percentageExpression;
+
+    display.value = finalExpression; // Show the modified expression for user context
+
+    calculateResult();
+}
+
+function showHistory() {
+    const historyElement = document.getElementById('history');
+    const historyList = document.getElementById('history-list');
+    historyList.innerHTML = ''; // Clear current history
+    history.forEach(entry => {
+        const li = document.createElement('li');
+        li.textContent = entry;
+        historyList.appendChild(li);
+    });
+    historyElement.style.display = historyElement.style.display === 'block' ? 'none' : 'block';
+}
+
+    </script>
+</body>
+</html>
